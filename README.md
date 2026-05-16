@@ -5,7 +5,13 @@
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![Min SDK](https://img.shields.io/badge/min%20SDK-28%20(Android%209)-brightgreen.svg)](https://developer.android.com/about/versions/pie/android-9.0)
 [![Status](https://img.shields.io/badge/status-v1.0.0-brightgreen.svg)](https://github.com/vatsalshah007/ProxiPad/releases)
-
+[![Last Commit](https://img.shields.io/github/last-commit/vatsalshah007/ProxiPad)](https://github.com/vatsalshah007/ProxiPad/commits/main)
+[![Issues](https://img.shields.io/github/issues/vatsalshah007/ProxiPad)](https://github.com/vatsalshah007/ProxiPad/issues)
+<!--[![Platform](https://img.shields.io/badge/platform-Android-3DDC84.svg)](https://android.com)-->
+<!--[![Kotlin](https://img.shields.io/badge/language-Kotlin-7F52FF.svg)](https://kotlinlang.org)-->
+[![CI](https://github.com/vatsalshah007/ProxiPad/actions/workflows/ci.yml/badge.svg)](https://github.com/vatsalshah007/ProxiPad/actions)
+<!--[![GitHub Stars](https://img.shields.io/github/stars/vatsalshah007/ProxiPad)](https://github.com/vatsalshah007/ProxiPad/stargazers)
+[![GitHub Forks](https://img.shields.io/github/forks/vatsalshah007/ProxiPad)](https://github.com/vatsalshah007/ProxiPad/network/members)-->
 ---
 
 ## What is ProxiPad?
