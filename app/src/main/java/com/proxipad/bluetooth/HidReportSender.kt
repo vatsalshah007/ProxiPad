@@ -5,21 +5,26 @@ import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothHidDevice
 import android.os.Handler
 import android.os.HandlerThread
+import android.os.Message
 import android.util.Log
 
-class HidReportSender {
+class HidReportSender : Handler.Callback {
     private var handlerThread: HandlerThread? = null
     private var handler: Handler? = null
 
-    // Pre-allocated buffer for testing phase 3a
-    private val dummyReport = ByteArray(MouseDescriptor.REPORT_SIZE)
+    var hidDeviceProxy: BluetoothHidDevice? = null
+    var activeTarget: BluetoothDevice? = null
+
+    // Single pre-allocated buffer used right before sending
+    private val sendBuffer = ByteArray(MouseDescriptor.REPORT_SIZE)
 
     fun start() {
         if (handlerThread == null) {
             Log.d(TAG, "Starting HID HandlerThread")
             handlerThread = HandlerThread("HidReportThread").apply {
                 start()
-                handler = Handler(looper)
+                // Use this class as the Handler.Callback
+                handler = Handler(looper, this@HidReportSender)
             }
         }
     }
@@ -32,33 +37,38 @@ class HidReportSender {
     }
 
     @SuppressLint("MissingPermission")
-    fun sendReport(hidDevice: BluetoothHidDevice, device: BluetoothDevice, report: ByteArray) {
-        handler?.post {
-            // id = 0 because we didn't define a Report ID in our MouseDescriptor
-            val success = hidDevice.sendReport(device, 0, report)
-            if (!success) {
-                Log.w(TAG, "Failed to send HID report")
-            }
+    override fun handleMessage(msg: Message): Boolean {
+        val proxy = hidDeviceProxy
+        val target = activeTarget
+        if (proxy == null || target == null) return true
+
+        // Unpack the 4 bytes from arg1 (packed to avoid allocating objects during ACTION_MOVE)
+        val packed = msg.arg1
+        sendBuffer[0] = (packed and 0xFF).toByte()
+        sendBuffer[1] = ((packed shr 8) and 0xFF).toByte()
+        sendBuffer[2] = ((packed shr 16) and 0xFF).toByte()
+        sendBuffer[3] = ((packed shr 24) and 0xFF).toByte()
+
+        val success = proxy.sendReport(target, 0, sendBuffer)
+        if (!success) {
+            Log.w(TAG, "Failed to send HID report")
         }
+        return true
     }
 
-    // Temporary method to test phase 3a
-    fun sendDummyReport(hidDevice: BluetoothHidDevice, device: BluetoothDevice) {
-        Log.d(TAG, "Sending dummy report (Left Click)")
-        // Dummy report: Left click down, no movement
-        dummyReport[0] = MouseDescriptor.BUTTON_LEFT.toByte()
-        dummyReport[1] = 0 // X
-        dummyReport[2] = 0 // Y
-        dummyReport[3] = 0 // Wheel
+    // Zero-allocation send method. Uses Android's Message pool to prevent GC.
+    fun sendReport(btn: Byte, x: Byte, y: Byte, scroll: Byte) {
+        val h = handler ?: return
+        val msg = h.obtainMessage(1)
         
-        sendReport(hidDevice, device, dummyReport)
+        // Pack all 4 bytes into a single integer
+        var packed = btn.toInt() and 0xFF
+        packed = packed or ((x.toInt() and 0xFF) shl 8)
+        packed = packed or ((y.toInt() and 0xFF) shl 16)
+        packed = packed or ((scroll.toInt() and 0xFF) shl 24)
         
-        // Post a release after 100ms
-        handler?.postDelayed({
-            Log.d(TAG, "Releasing dummy report (Left Click UP)")
-            dummyReport[0] = 0 // release click
-            sendReport(hidDevice, device, dummyReport)
-        }, 100)
+        msg.arg1 = packed
+        h.sendMessage(msg)
     }
 
     companion object {

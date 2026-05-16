@@ -8,12 +8,21 @@ import android.bluetooth.BluetoothHidDeviceAppSdpSettings
 import android.bluetooth.BluetoothManager
 import android.bluetooth.BluetoothProfile
 import android.content.Context
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 
 class HidProfileManager(private val context: Context) {
 
     private var hidDevice: BluetoothHidDevice? = null
+    private var activeDevice: BluetoothDevice? = null
     private val reportSender = HidReportSender()
+    
+    private var isExplicitDisconnect = false
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private var reconnectRunnable: Runnable? = null
+    
+    var onConnectionStateChanged: ((Boolean, String?) -> Unit)? = null
     
     private val bluetoothManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
     private val bluetoothAdapter: BluetoothAdapter? = bluetoothManager.adapter
@@ -23,6 +32,7 @@ class HidProfileManager(private val context: Context) {
             if (profile == BluetoothProfile.HID_DEVICE) {
                 Log.d(TAG, "HID profile connected")
                 hidDevice = proxy as BluetoothHidDevice
+                reportSender.hidDeviceProxy = hidDevice
                 registerApp()
             }
         }
@@ -31,6 +41,7 @@ class HidProfileManager(private val context: Context) {
             if (profile == BluetoothProfile.HID_DEVICE) {
                 Log.d(TAG, "HID profile disconnected")
                 hidDevice = null
+                reportSender.hidDeviceProxy = null
             }
         }
     }
@@ -52,10 +63,68 @@ class HidProfileManager(private val context: Context) {
             }
             Log.d(TAG, "onConnectionStateChanged: state=$stateStr")
             
-            if (state == BluetoothProfile.STATE_CONNECTED && hidDevice != null) {
-                // Phase 3b: Test sending a static report when connected
-                reportSender.sendDummyReport(hidDevice!!, device)
+            if (state == BluetoothProfile.STATE_CONNECTED) {
+                isExplicitDisconnect = false
+                stopReconnectLoop()
+                activeDevice = device
+                reportSender.activeTarget = device
+                onConnectionStateChanged?.invoke(true, device.name)
+            } else if (state == BluetoothProfile.STATE_DISCONNECTED) {
+                val droppedDevice = activeDevice ?: device
+                if (activeDevice == device) {
+                    activeDevice = null
+                    reportSender.activeTarget = null
+                    onConnectionStateChanged?.invoke(false, null)
+                }
+                
+                // If it wasn't an explicit disconnect by the user, try to recover
+                if (!isExplicitDisconnect && droppedDevice != null) {
+                    startReconnectLoop(droppedDevice)
+                }
             }
+        }
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun startReconnectLoop(device: BluetoothDevice) {
+        if (reconnectRunnable != null) return // Already running
+        Log.d(TAG, "Starting reconnect loop for ${device.address}")
+        
+        reconnectRunnable = object : Runnable {
+            override fun run() {
+                if (hidDevice != null && !isExplicitDisconnect) {
+                    val currentState = hidDevice?.getConnectionState(device)
+                    if (currentState == BluetoothProfile.STATE_DISCONNECTED) {
+                        Log.d(TAG, "Attempting auto-reconnect...")
+                        hidDevice?.connect(device)
+                    }
+                    // Poll every 5 seconds
+                    mainHandler.postDelayed(this, 5000)
+                }
+            }
+        }
+        // Initial reconnect attempt after a short delay
+        mainHandler.postDelayed(reconnectRunnable!!, 2000)
+    }
+
+    private fun stopReconnectLoop() {
+        reconnectRunnable?.let { mainHandler.removeCallbacks(it) }
+        reconnectRunnable = null
+    }
+
+    fun sendReport(btn: Byte, x: Byte, y: Byte, scroll: Byte) {
+        reportSender.sendReport(btn, x, y, scroll)
+    }
+
+    @SuppressLint("MissingPermission")
+    fun disconnect() {
+        isExplicitDisconnect = true
+        stopReconnectLoop()
+        val proxy = hidDevice
+        val target = activeDevice
+        if (proxy != null && target != null) {
+            Log.d(TAG, "Disconnecting from ${target.name ?: target.address}")
+            proxy.disconnect(target)
         }
     }
 
@@ -97,6 +166,7 @@ class HidProfileManager(private val context: Context) {
     @SuppressLint("MissingPermission")
     fun release() {
         Log.d(TAG, "Releasing HID profile proxy")
+        stopReconnectLoop()
         reportSender.stop()
         hidDevice?.unregisterApp()
         bluetoothAdapter?.closeProfileProxy(BluetoothProfile.HID_DEVICE, hidDevice)
@@ -105,12 +175,16 @@ class HidProfileManager(private val context: Context) {
 
     @SuppressLint("MissingPermission")
     fun connect(device: BluetoothDevice): Boolean {
+        isExplicitDisconnect = false
+        stopReconnectLoop()
         Log.d(TAG, "Connecting to ${device.address}")
         return hidDevice?.connect(device) ?: false
     }
 
     @SuppressLint("MissingPermission")
     fun disconnect(device: BluetoothDevice): Boolean {
+        isExplicitDisconnect = true
+        stopReconnectLoop()
         Log.d(TAG, "Disconnecting from ${device.address}")
         return hidDevice?.disconnect(device) ?: false
     }

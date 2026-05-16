@@ -116,9 +116,85 @@ PHASE 4 — Gesture Engine
 4e. Add two-finger scroll. Test.
 
 PHASE 5 — UI Layer
-5a. TouchSurface.kt — fullscreen View wired to GestureEngine
-5b. DevicePickerDialog.kt — lists paired BT devices
-5c. MainActivity.kt — ties everything together
+Use Jetpack Compose for the UI, not XML layouts.
+
+5a. UI Layout (MainActivity + TouchSurface)
+
+ORIENTATION LOGIC:
+
+- App always launches in portrait
+- Force rotate to landscape ONLY after BT connection is confirmed
+- On mid-session dropout: stay landscape, show disconnection toast,
+  start a 5 min timeout timer (SESSION_TIMEOUT_MS = 5 _ 60 _ 1000)
+- If still disconnected after timeout: snap back to portrait, show
+  "Session ended. Tap to connect." prompt
+- If user backgrounds app during active session and returns:
+  - BT still connected → resume landscape
+  - BT disconnected → portrait with connect prompt
+- Orientation is controlled programmatically via
+  requestedOrientation, not the manifest
+
+PORTRAIT LAYOUT:
+
+- Status bar at top: red dot + "Not Connected" (tappable → opens picker)
+- Touchpad surface below (inactive/dimmed state, not interactable)
+
+LANDSCAPE LAYOUT:
+
+- Status bar on right edge (appears as top bar in landscape):
+  green/red dot + device name — tappable always
+  - Connected: tap → "Disconnect?" confirmation
+  - Disconnected: tap → opens device picker bottom sheet
+- Touchpad surface fills remaining screen space, fully active
+
+VISUAL THEME:
+
+- Dark background throughout
+- Touchpad: dark rounded rectangle, subtle border/inner shadow
+- Status text: light muted color, small and unobtrusive
+- No app title anywhere
+- No buttons (v2)
+
+TECHNICAL:
+
+- Single Activity, no fragments
+- TouchSurface is a custom View overriding onTouchEvent
+- Status bar updates via callback from HidProfileManager
+- Flat view hierarchy, ConstraintLayout or Compose
+- Use Jetpack Compose, not XML
+- SESSION_TIMEOUT_MS defined as a top-level constant
+  5b. TouchSurface.kt — fullscreen View wired to GestureEngine
+  5c. DevicePickerDialog
+
+BEHAVIOR:
+
+- Triggered by tapping the status bar in both portrait
+  and landscape modes
+- In landscape: sheet appears from the right edge
+- In portrait: sheet appears from bottom
+
+VISUAL THEME (must match main screen exactly):
+
+- Same dark background tone as touchpad surface
+- Rounded top corners (bottom sheet) or left corners (landscape)
+- Drag handle at the opening edge
+- Title: "Select Device" — light muted text, not bold
+- Device list items: device name in white/light text,
+  MAC address below in smaller muted text
+- Selection highlight: subtle lighter dark shade
+- Empty state: "No paired devices found. Pair your tablet
+  in Bluetooth settings." in muted text
+- No default Material dialog styling
+
+TECHNICAL:
+
+- ModalBottomSheet (Compose Material3)
+- Lists only already-paired BT devices
+- Returns selected BluetoothDevice to MainActivity
+- On selection: initiates connection, closes sheet,
+  starts connection flow
+- Jetpack Compose, not XML
+  5d. MainActivity.kt — ties everything together
 
 PHASE 6 — Background Service
 6a. HidForegroundService.kt — keeps connection alive when backgrounded
