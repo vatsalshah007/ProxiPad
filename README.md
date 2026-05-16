@@ -3,9 +3,8 @@
 > Turn your Android phone into a wireless Bluetooth trackpad for your tablet — no tablet app required.
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
-[![Min SDK](https://img.shields.io/badge/min%20SDK-28%20(Android%209)-brightgreen.svg)]()
-[![Status](https://img.shields.io/badge/status-v1.0.0-brightgreen.svg)]()
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/vatsalshah007/ProxiPad/pulls)
+[![Min SDK](https://img.shields.io/badge/min%20SDK-28%20(Android%209)-brightgreen.svg)](https://developer.android.com/about/versions/pie/android-9.0)
+[![Status](https://img.shields.io/badge/status-v1.0.0-brightgreen.svg)](https://github.com/vatsalshah007/ProxiPad/releases)
 
 ---
 
