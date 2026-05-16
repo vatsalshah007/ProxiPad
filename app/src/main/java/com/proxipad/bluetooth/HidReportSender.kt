@@ -42,14 +42,18 @@ class HidReportSender : Handler.Callback {
         val target = activeTarget
         if (proxy == null || target == null) return true
 
-        // Unpack the 4 bytes from arg1 (packed to avoid allocating objects during ACTION_MOVE)
         val packed = msg.arg1
-        sendBuffer[0] = (packed and 0xFF).toByte()
-        sendBuffer[1] = ((packed shr 8) and 0xFF).toByte()
-        sendBuffer[2] = ((packed shr 16) and 0xFF).toByte()
-        sendBuffer[3] = ((packed shr 24) and 0xFF).toByte()
+        val btn = packed and 0xFF
+        val x = (packed shr 8) and 0xFF
+        val y = (packed shr 16) and 0xFF
+        val scroll = (packed shr 24) and 0xFF
 
-        val success = proxy.sendReport(target, 0, sendBuffer)
+        // Convert back to signed integers
+        val xSigned = x.toByte().toInt()
+        val ySigned = y.toByte().toInt()
+        val scrollSigned = scroll.toByte().toInt()
+
+        val success = proxy.sendReport(target, 0, buildReport(btn, xSigned, ySigned, scrollSigned))
         if (!success) {
             Log.w(TAG, "Failed to send HID report")
         }
@@ -57,18 +61,33 @@ class HidReportSender : Handler.Callback {
     }
 
     // Zero-allocation send method. Uses Android's Message pool to prevent GC.
-    fun sendReport(btn: Byte, x: Byte, y: Byte, scroll: Byte) {
+    fun sendReport(btn: Int, x: Int, y: Int, scroll: Int) {
         val h = handler ?: return
         val msg = h.obtainMessage(1)
         
-        // Pack all 4 bytes into a single integer
-        var packed = btn.toInt() and 0xFF
-        packed = packed or ((x.toInt() and 0xFF) shl 8)
-        packed = packed or ((y.toInt() and 0xFF) shl 16)
-        packed = packed or ((scroll.toInt() and 0xFF) shl 24)
+        val cx = x.coerceIn(-127, 127)
+        val cy = y.coerceIn(-127, 127)
+        val cScroll = scroll.coerceIn(-127, 127)
+
+        // Pack all 4 bytes into a single integer thread-safely
+        var packed = btn and 0xFF
+        packed = packed or ((cx and 0xFF) shl 8)
+        packed = packed or ((cy and 0xFF) shl 16)
+        packed = packed or ((cScroll and 0xFF) shl 24)
         
         msg.arg1 = packed
         h.sendMessage(msg)
+    }
+
+    /**
+     * Visible for testing. Applies clamping and populates the pre-allocated buffer.
+     */
+    internal fun buildReport(btn: Int, x: Int, y: Int, scroll: Int): ByteArray {
+        sendBuffer[0] = btn.toByte()
+        sendBuffer[1] = x.coerceIn(-127, 127).toByte()
+        sendBuffer[2] = y.coerceIn(-127, 127).toByte()
+        sendBuffer[3] = scroll.coerceIn(-127, 127).toByte()
+        return sendBuffer
     }
 
     companion object {

@@ -112,7 +112,7 @@ class HidProfileManager(private val context: Context) {
         reconnectRunnable = null
     }
 
-    fun sendReport(btn: Byte, x: Byte, y: Byte, scroll: Byte) {
+    fun sendReport(btn: Int, x: Int, y: Int, scroll: Int) {
         reportSender.sendReport(btn, x, y, scroll)
     }
 

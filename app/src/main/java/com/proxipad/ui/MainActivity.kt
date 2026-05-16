@@ -237,18 +237,18 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun handleGesture(event: GestureEvent) {
-        var x: Byte = 0
-        var y: Byte = 0
-        var scroll: Byte = 0
+        var x: Int = 0
+        var y: Int = 0
+        var scroll: Int = 0
         var scheduleRelease = false
 
         when (event) {
             is GestureEvent.Move -> {
-                x = event.dx.coerceIn(-127, 127).toByte()
-                y = event.dy.coerceIn(-127, 127).toByte()
+                x = event.dx
+                y = event.dy
             }
             is GestureEvent.Scroll -> {
-                scroll = event.amount.coerceIn(-127, 127).toByte()
+                scroll = event.amount
             }
             is GestureEvent.Tap -> {
                 leftButtonDown = true
@@ -268,12 +268,12 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun sendCurrentState(x: Byte, y: Byte, scroll: Byte) {
+    private fun sendCurrentState(x: Int, y: Int, scroll: Int) {
         var buttons = 0
         if (leftButtonDown) buttons = buttons or MouseDescriptor.BUTTON_LEFT
         if (rightButtonDown) buttons = buttons or MouseDescriptor.BUTTON_RIGHT
         
-        hidProfileManager?.sendReport(buttons.toByte(), x, y, scroll)
+        hidProfileManager?.sendReport(buttons, x, y, scroll)
     }
 
     override fun onDestroy() {
