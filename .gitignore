@@ -36,8 +36,8 @@ google-services.json
 # Android Profiling
 *.hprof
 
-.agents/
-.agent/
+# .agents/
+# .agent/
 
 # Key store
 proxipad.keystore

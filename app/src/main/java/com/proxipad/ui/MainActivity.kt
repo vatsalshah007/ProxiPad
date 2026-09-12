@@ -258,6 +258,17 @@ class MainActivity : ComponentActivity() {
                 rightButtonDown = true
                 scheduleRelease = true
             }
+            is GestureEvent.DragHoldStart -> {
+                leftButtonDown = true
+            }
+            is GestureEvent.DragMove -> {
+                leftButtonDown = true
+                x = event.dx
+                y = event.dy
+            }
+            is GestureEvent.DragRelease -> {
+                leftButtonDown = false
+            }
         }
 
         sendCurrentState(x, y, scroll)
